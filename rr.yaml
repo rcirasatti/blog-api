@@ -1,0 +1,26 @@
+# RoadRunner Configuration
+
+server:
+  command: "php public/index.php"
+  relay: "pipes"
+
+http:
+  address: "0.0.0.0:8000"
+  max_request_size: 32MiB
+  access_logs: true
+  pool:
+    num_workers: auto
+    max_jobs: 64
+    supervisor:
+      watch_tick: 1s
+      ttl: 0s
+
+logs:
+  level: debug
+
+# Optional: Metrics
+# metrics:
+#   listen: "localhost:2112"
+#   collect:
+#     app_requests_total: true
+#     app_request_duration_seconds: true

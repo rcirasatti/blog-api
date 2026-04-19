@@ -1,0 +1,40 @@
+FROM php:8.2-cli
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpq-dev \
+    libsqlite3-dev \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install \
+    pdo \
+    pdo_pgsql \
+    pdo_sqlite \
+    bcmath \
+    ctype \
+    fileinfo \
+    json \
+    mbstring \
+    tokenizer \
+    xml
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Copy application files
+COPY . /app
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader
+
+# Expose Octane port
+EXPOSE 8000
+
+# Start Octane RoadRunner server
+CMD ["php", "artisan", "octane:start", "--server=roadrunner", "--host=0.0.0.0", "--port=8000"]
