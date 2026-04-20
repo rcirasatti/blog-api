@@ -35,13 +35,18 @@ class CommentPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function update(User $user, Comment $comment): bool
+    public function update(User $user, Comment $comment): Response
     {
-        return $user->id === $comment->user_id;
+        return $user->id === $comment->user_id
+            ? Response::allow()
+            : Response::deny('Anda tidak memiliki izin untuk melakukan aksi ini.');
     }
-    public function delete(User $user, Comment $comment): bool
+
+    public function delete(User $user, Comment $comment): Response
     {
-        return $user->id === $comment->user_id;
+        return $user->id === $comment->user_id
+            ? Response::allow()
+            : Response::deny('Anda tidak memiliki izin untuk melakukan aksi ini.');
     }
 
     /**

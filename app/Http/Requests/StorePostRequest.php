@@ -23,4 +23,12 @@ class StorePostRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'title.required' => 'Judul post wajib diisi.',
+            'title.max' => 'Judul post maksimal 255 karakter.',
+            'body.required' => 'Isi post wajib diisi.',
+        ];
+    }
 }

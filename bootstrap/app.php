@@ -3,8 +3,11 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\AuthorizationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,15 +21,44 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
+        // 404 Not Found
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->is('api/*')) {
-                return response()->json(['message' => 'Resource tidak ditemukan.'], 404);
+                return response()->json([
+                    'message' => 'Resource tidak ditemukan.',
+                    'status_code' => 404
+                ], 404);
             }
         });
 
+        // Authentication (401 Unauthorized)
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
-                return response()->json(['message' => 'Silakan login terlebih dahulu.'], 401);
+                return response()->json([
+                    'message' => 'Silakan login terlebih dahulu.',
+                    'status_code' => 401
+                ], 401);
             }
         });
+
+        // Authorization (403 Forbidden)
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Anda tidak memiliki izin untuk melakukan aksi ini.',
+                    'status_code' => 403
+                ], 403);
+            }
+        });
+
+        // Method Not Allowed (405)
+        $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Metode HTTP tidak diperbolehkan untuk resource ini.',
+                    'status_code' => 405
+                ], 405);
+            }
+        });
+
     })->create();
