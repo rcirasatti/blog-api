@@ -4,17 +4,22 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CommentController;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// Auth endpoints with strict rate limiting
+Route::middleware('throttle:5,1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+});
 
-// Public GET endpoints (read-only)
-Route::get('posts', [PostController::class, 'index']);
-Route::get('posts/{post}', [PostController::class, 'show']);
-Route::get('posts/{post}/comments', [CommentController::class, 'index']);
-Route::get('comments/{comment}', [CommentController::class, 'show']);
+// Public GET endpoints (read-only) with moderate rate limiting
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('posts', [PostController::class, 'index']);
+    Route::get('posts/{post}', [PostController::class, 'show']);
+    Route::get('posts/{post}/comments', [CommentController::class, 'index']);
+    Route::get('comments/{comment}', [CommentController::class, 'show']);
+});
 
-// Protected endpoints (write operations)
-Route::middleware('auth:sanctum')->group(function () {
+// Protected endpoints (write operations) with strict rate limiting
+Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     
     // Posts (create, update, delete)
@@ -30,4 +35,4 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::get('/user', function (Request $request) {
     return $request->user();
-})->middleware('auth:sanctum');
+})->middleware(['auth:sanctum', 'throttle:60,1']);
