@@ -11,6 +11,19 @@ class AuthApiTest extends TestCase
     use RefreshDatabase;
 
     /**
+     * Test: Every API response must contain Security Headers
+     */
+    protected function assertSecurityHeaders($response)
+    {
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('X-Frame-Options', 'DENY');
+        $response->assertHeader('X-XSS-Protection', '1; mode=block');
+        $response->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        $response->assertHeader('Cache-Control', 'no-store, private');
+        $response->assertHeader('Referrer-Policy', 'no-referrer');
+    }
+
+    /**
      * Test: Register a new user
      */
     public function test_register_user_successfully(): void
@@ -23,7 +36,16 @@ class AuthApiTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-            ->assertJsonStructure(['token', 'user' => ['id', 'name', 'email']]);
+            ->assertJsonStructure([
+                'access_token',
+                'refresh_token',
+                'token_type',
+                'expires_in',
+                'refresh_expires_in',
+                'abilities'
+            ]);
+
+        $this->assertSecurityHeaders($response);
 
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
@@ -47,7 +69,16 @@ class AuthApiTest extends TestCase
         ]);
 
         $response->assertStatus(200)
-            ->assertJsonStructure(['token']);
+            ->assertJsonStructure([
+                'access_token',
+                'refresh_token',
+                'token_type',
+                'expires_in',
+                'refresh_expires_in',
+                'abilities'
+            ]);
+
+        $this->assertSecurityHeaders($response);
     }
 
     /**
@@ -67,6 +98,8 @@ class AuthApiTest extends TestCase
 
         $response->assertStatus(401)
             ->assertJsonPath('message', 'Email atau password salah.');
+
+        $this->assertSecurityHeaders($response);
     }
 
     /**
@@ -75,34 +108,62 @@ class AuthApiTest extends TestCase
     public function test_logout_user_successfully(): void
     {
         $user = User::factory()->create();
-        $token = $user->createToken('api-token')->plainTextToken;
+        $token = $user->createToken('access-token', ['post:create'])->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer $token")
             ->postJson('/api/v1/logout');
 
         $response->assertStatus(200)
             ->assertJsonPath('message', 'Logout berhasil.');
+
+        $this->assertSecurityHeaders($response);
             
         $user->refresh();
         $this->assertCount(0, $user->tokens);
     }
 
     /**
-     * Test: Refresh token successfully
+     * Test: Refresh token using valid refresh token succeeds
      */
     public function test_refresh_token_successfully(): void
     {
         $user = User::factory()->create();
-        $token = $user->createToken('api-token')->plainTextToken;
+        $refreshToken = $user->createToken('refresh-token', ['token:refresh'])->plainTextToken;
 
-        $response = $this->withHeader('Authorization', "Bearer $token")
-            ->patchJson('/api/v1/refresh');
+        $response = $this->withHeader('Authorization', "Bearer $refreshToken")
+            ->postJson('/api/v1/refresh');
 
         $response->assertStatus(200)
-            ->assertJsonStructure(['token']);
+            ->assertJsonStructure([
+                'access_token',
+                'refresh_token',
+                'token_type',
+                'expires_in',
+                'refresh_expires_in',
+                'abilities'
+            ]);
+
+        $this->assertSecurityHeaders($response);
             
-        // Check that old token was revoked (the user should still only have 1 active token)
+        // Old token was deleted, but new pair was generated (2 tokens)
         $user->refresh();
-        $this->assertCount(1, $user->tokens);
+        $this->assertCount(2, $user->tokens);
+    }
+
+    /**
+     * Test: Refresh token using access token (lacks token:refresh ability) fails
+     */
+    public function test_refresh_token_fails_with_access_token(): void
+    {
+        $user = User::factory()->create();
+        $accessToken = $user->createToken('access-token', ['post:create'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer $accessToken")
+            ->postJson('/api/v1/refresh');
+
+        $response->assertStatus(403)
+            ->assertJsonPath('message', 'Aksi tidak diizinkan. Token tidak memiliki kemampuan untuk me-refresh token.');
+
+        $this->assertSecurityHeaders($response);
     }
 }

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\Post;
 use App\Models\Comment;
+use Laravel\Sanctum\Sanctum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -81,14 +82,15 @@ class CommentApiTest extends TestCase
     }
 
     /**
-     * Test: Create comment with valid data
+     * Test: Create comment with valid data and correct token abilities
      */
     public function test_create_comment_with_valid_data(): void
     {
-        $response = $this->actingAs($this->user)
-            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
-                'body' => 'This is a great post!'
-            ]);
+        Sanctum::actingAs($this->user, ['comment:create']);
+
+        $response = $this->postJson("/api/v1/posts/{$this->post->id}/comments", [
+            'body' => 'This is a great post!'
+        ]);
 
         $response->assertStatus(201)
             ->assertJsonStructure([
@@ -103,14 +105,30 @@ class CommentApiTest extends TestCase
     }
 
     /**
+     * Test: Create comment fails if token lacks comment:create ability
+     */
+    public function test_create_comment_fails_without_ability(): void
+    {
+        Sanctum::actingAs($this->user, ['post:create']);
+
+        $response = $this->postJson("/api/v1/posts/{$this->post->id}/comments", [
+            'body' => 'This is a great post!'
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJsonPath('message', 'Aksi tidak diizinkan. Token tidak memiliki kemampuan comment:create.');
+    }
+
+    /**
      * Test: Create comment with empty body fails
      */
     public function test_create_comment_with_empty_body_fails(): void
     {
-        $response = $this->actingAs($this->user)
-            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
-                'body' => ''
-            ]);
+        Sanctum::actingAs($this->user, ['comment:create']);
+
+        $response = $this->postJson("/api/v1/posts/{$this->post->id}/comments", [
+            'body' => ''
+        ]);
 
         $response->assertStatus(422)
             ->assertJsonPath('errors.body.0', 'Isi komentar wajib diisi.');
@@ -121,10 +139,11 @@ class CommentApiTest extends TestCase
      */
     public function test_create_comment_with_body_too_short_fails(): void
     {
-        $response = $this->actingAs($this->user)
-            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
-                'body' => 'Hi'
-            ]);
+        Sanctum::actingAs($this->user, ['comment:create']);
+
+        $response = $this->postJson("/api/v1/posts/{$this->post->id}/comments", [
+            'body' => 'Hi'
+        ]);
 
         $response->assertStatus(422)
             ->assertJsonPath('errors.body.0', 'Isi komentar minimal 3 karakter.');
@@ -135,12 +154,13 @@ class CommentApiTest extends TestCase
      */
     public function test_create_comment_with_body_too_long_fails(): void
     {
+        Sanctum::actingAs($this->user, ['comment:create']);
+
         $longBody = str_repeat('a', 1001);
 
-        $response = $this->actingAs($this->user)
-            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
-                'body' => $longBody
-            ]);
+        $response = $this->postJson("/api/v1/posts/{$this->post->id}/comments", [
+            'body' => $longBody
+        ]);
 
         $response->assertStatus(422)
             ->assertJsonPath('errors.body.0', 'Isi komentar maksimal 1000 karakter.');
@@ -152,11 +172,11 @@ class CommentApiTest extends TestCase
     public function test_update_comment_requires_authorization(): void
     {
         $otherUser = User::factory()->create();
+        Sanctum::actingAs($otherUser, ['comment:create']);
 
-        $response = $this->actingAs($otherUser)
-            ->patchJson("/api/v1/comments/{$this->comment->id}", [
-                'body' => 'Updated comment'
-            ]);
+        $response = $this->patchJson("/api/v1/comments/{$this->comment->id}", [
+            'body' => 'Updated comment'
+        ]);
 
         $response->assertStatus(403);
     }
@@ -166,10 +186,11 @@ class CommentApiTest extends TestCase
      */
     public function test_update_comment_by_owner_succeeds(): void
     {
-        $response = $this->actingAs($this->user)
-            ->patchJson("/api/v1/comments/{$this->comment->id}", [
-                'body' => 'Updated comment text'
-            ]);
+        Sanctum::actingAs($this->user, ['comment:create']);
+
+        $response = $this->patchJson("/api/v1/comments/{$this->comment->id}", [
+            'body' => 'Updated comment text'
+        ]);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.body', 'Updated comment text');
@@ -181,20 +202,21 @@ class CommentApiTest extends TestCase
     public function test_delete_comment_requires_authorization(): void
     {
         $otherUser = User::factory()->create();
+        Sanctum::actingAs($otherUser, ['comment:delete']);
 
-        $response = $this->actingAs($otherUser)
-            ->deleteJson("/api/v1/comments/{$this->comment->id}");
+        $response = $this->deleteJson("/api/v1/comments/{$this->comment->id}");
 
         $response->assertStatus(403);
     }
 
     /**
-     * Test: Delete comment by owner succeeds
+     * Test: Delete comment by owner succeeds with correct ability
      */
     public function test_delete_comment_by_owner_succeeds(): void
     {
-        $response = $this->actingAs($this->user)
-            ->deleteJson("/api/v1/comments/{$this->comment->id}");
+        Sanctum::actingAs($this->user, ['comment:delete']);
+
+        $response = $this->deleteJson("/api/v1/comments/{$this->comment->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('message', 'Komentar berhasil dihapus');
@@ -202,6 +224,19 @@ class CommentApiTest extends TestCase
         $this->assertDatabaseMissing('comments', [
             'id' => $this->comment->id
         ]);
+    }
+
+    /**
+     * Test: Delete comment fails if token lacks comment:delete ability
+     */
+    public function test_delete_comment_fails_without_ability(): void
+    {
+        Sanctum::actingAs($this->user, ['comment:create']);
+
+        $response = $this->deleteJson("/api/v1/comments/{$this->comment->id}");
+
+        $response->assertStatus(403)
+            ->assertJsonPath('message', 'Aksi tidak diizinkan. Token tidak memiliki kemampuan comment:delete.');
     }
 
     /**

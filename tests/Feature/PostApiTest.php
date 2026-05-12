@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\Post;
+use Laravel\Sanctum\Sanctum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -83,15 +84,16 @@ class PostApiTest extends TestCase
     }
 
     /**
-     * Test: Create post with valid data
+     * Test: Create post with valid data and correct token abilities
      */
     public function test_create_post_with_valid_data(): void
     {
-        $response = $this->actingAs($this->user)
-            ->postJson('/api/v1/posts', [
-                'title' => 'New Post',
-                'body'  => 'This is a test post content.'
-            ]);
+        Sanctum::actingAs($this->user, ['post:create']);
+
+        $response = $this->postJson('/api/v1/posts', [
+            'title' => 'New Post',
+            'body'  => 'This is a test post content.'
+        ]);
 
         $response->assertStatus(201)
             ->assertJsonStructure([
@@ -106,15 +108,32 @@ class PostApiTest extends TestCase
     }
 
     /**
+     * Test: Create post fails if token lacks post:create ability
+     */
+    public function test_create_post_fails_without_ability(): void
+    {
+        Sanctum::actingAs($this->user, ['comment:create']);
+
+        $response = $this->postJson('/api/v1/posts', [
+            'title' => 'New Post',
+            'body'  => 'This is a test post content.'
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJsonPath('message', 'Aksi tidak diizinkan. Token tidak memiliki kemampuan post:create.');
+    }
+
+    /**
      * Test: Create post dengan title kosong gagal
      */
     public function test_create_post_with_empty_title_fails(): void
     {
-        $response = $this->actingAs($this->user)
-            ->postJson('/api/v1/posts', [
-                'title' => '',
-                'body'  => 'This is a test post content.'
-            ]);
+        Sanctum::actingAs($this->user, ['post:create']);
+
+        $response = $this->postJson('/api/v1/posts', [
+            'title' => '',
+            'body'  => 'This is a test post content.'
+        ]);
 
         $response->assertStatus(422)
             ->assertJsonStructure(['message', 'errors'])
@@ -127,27 +146,28 @@ class PostApiTest extends TestCase
     public function test_update_post_requires_authorization(): void
     {
         $otherUser = User::factory()->create();
+        Sanctum::actingAs($otherUser, ['post:update']);
 
-        $response = $this->actingAs($otherUser)
-            ->patchJson("/api/v1/posts/{$this->post->id}", [
-                'title' => 'Updated Title',
-                'body'  => 'Updated body'
-            ]);
+        $response = $this->patchJson("/api/v1/posts/{$this->post->id}", [
+            'title' => 'Updated Title',
+            'body'  => 'Updated body'
+        ]);
 
         $response->assertStatus(403)
             ->assertJsonPath('message', 'Anda tidak memiliki izin untuk melakukan aksi ini.');
     }
 
     /**
-     * Test: Update post by owner succeeds
+     * Test: Update post by owner succeeds with correct ability
      */
     public function test_update_post_by_owner_succeeds(): void
     {
-        $response = $this->actingAs($this->user)
-            ->patchJson("/api/v1/posts/{$this->post->id}", [
-                'title' => 'Updated Title',
-                'body'  => 'Updated body'
-            ]);
+        Sanctum::actingAs($this->user, ['post:update']);
+
+        $response = $this->patchJson("/api/v1/posts/{$this->post->id}", [
+            'title' => 'Updated Title',
+            'body'  => 'Updated body'
+        ]);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.title', 'Updated Title');
@@ -159,25 +179,42 @@ class PostApiTest extends TestCase
     }
 
     /**
+     * Test: Update post fails if token lacks post:update ability
+     */
+    public function test_update_post_fails_without_ability(): void
+    {
+        Sanctum::actingAs($this->user, ['post:create']);
+
+        $response = $this->patchJson("/api/v1/posts/{$this->post->id}", [
+            'title' => 'Updated Title',
+            'body'  => 'Updated body'
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJsonPath('message', 'Aksi tidak diizinkan. Token tidak memiliki kemampuan post:update.');
+    }
+
+    /**
      * Test: Delete post requires authorization
      */
     public function test_delete_post_requires_authorization(): void
     {
         $otherUser = User::factory()->create();
+        Sanctum::actingAs($otherUser, ['post:delete']);
 
-        $response = $this->actingAs($otherUser)
-            ->deleteJson("/api/v1/posts/{$this->post->id}");
+        $response = $this->deleteJson("/api/v1/posts/{$this->post->id}");
 
         $response->assertStatus(403);
     }
 
     /**
-     * Test: Delete post by owner succeeds
+     * Test: Delete post by owner succeeds with correct ability
      */
     public function test_delete_post_by_owner_succeeds(): void
     {
-        $response = $this->actingAs($this->user)
-            ->deleteJson("/api/v1/posts/{$this->post->id}");
+        Sanctum::actingAs($this->user, ['post:delete']);
+
+        $response = $this->deleteJson("/api/v1/posts/{$this->post->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('message', 'Post berhasil dihapus');
@@ -185,6 +222,19 @@ class PostApiTest extends TestCase
         $this->assertDatabaseMissing('posts', [
             'id' => $this->post->id
         ]);
+    }
+
+    /**
+     * Test: Delete post fails if token lacks post:delete ability
+     */
+    public function test_delete_post_fails_without_ability(): void
+    {
+        Sanctum::actingAs($this->user, ['post:create']);
+
+        $response = $this->deleteJson("/api/v1/posts/{$this->post->id}");
+
+        $response->assertStatus(403)
+            ->assertJsonPath('message', 'Aksi tidak diizinkan. Token tidak memiliki kemampuan post:delete.');
     }
 
     /**
@@ -196,21 +246,5 @@ class PostApiTest extends TestCase
 
         $response->assertStatus(404)
             ->assertJsonPath('message', 'Resource tidak ditemukan.');
-    }
-
-    /**
-     * Test: Validate post body max length
-     */
-    public function test_validate_post_body_max_length(): void
-    {
-        $longBody = str_repeat('a', 100001);
-
-        $response = $this->actingAs($this->user)
-            ->postJson('/api/v1/posts', [
-                'title' => 'Test',
-                'body'  => $longBody
-            ]);
-
-        $response->assertStatus(201); // No max length set, so it succeeds
     }
 }

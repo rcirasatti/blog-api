@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCommentRequest;
@@ -8,6 +8,7 @@ use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Post;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
@@ -23,6 +24,12 @@ class CommentController extends Controller
 
     public function store(StoreCommentRequest $request, Post $post): JsonResponse
     {
+        if (!$request->user()->tokenCan('comment:create')) {
+            return response()->json([
+                'message' => 'Aksi tidak diizinkan. Token tidak memiliki kemampuan comment:create.'
+            ], 403);
+        }
+
         $comment = $post->comments()->create([
             'user_id' => $request->user()->id,
             'body'    => $request->validated('body'),
@@ -43,8 +50,14 @@ class CommentController extends Controller
         return response()->json(['data' => new CommentResource($comment)]);
     }
 
-    public function destroy(Comment $comment): JsonResponse
+    public function destroy(Request $request, Comment $comment): JsonResponse
     {
+        if (!$request->user()->tokenCan('comment:delete')) {
+            return response()->json([
+                'message' => 'Aksi tidak diizinkan. Token tidak memiliki kemampuan comment:delete.'
+            ], 403);
+        }
+
         $this->authorize('delete', $comment);
         $comment->delete();
         return response()->json([
