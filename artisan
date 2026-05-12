@@ -4,6 +4,17 @@
 use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
+// Define PCNTL signals if not defined (e.g., on Windows) to prevent Laravel Octane crashes
+if (!defined('SIGINT')) {
+    define('SIGINT', 2);
+}
+if (!defined('SIGTERM')) {
+    define('SIGTERM', 15);
+}
+if (!defined('SIGHUP')) {
+    define('SIGHUP', 1);
+}
+
 define('LARAVEL_START', microtime(true));
 
 // Register the Composer autoloader...
