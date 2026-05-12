@@ -19,6 +19,7 @@ class PostResource extends JsonResource
             'title' => $this->title,
             'body' => $this->body,
             'author' => UserResource::make($this->whenLoaded('user')),
+            'comments' => CommentResource::collection($this->whenLoaded('comments')),
             'comments_count' => $this->whenCounted('comments'),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

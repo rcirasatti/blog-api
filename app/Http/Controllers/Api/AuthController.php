@@ -44,4 +44,14 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logout berhasil.']);
     }
+
+    public function refreshToken(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        // Hapus token yang digunakan saat ini
+        $user->currentAccessToken()->delete();
+        // Terbitkan token baru
+        $token = $user->createToken('api-token')->plainTextToken;
+        return response()->json(['token' => $token]);
+    }
 }

@@ -28,7 +28,7 @@ class PostApiTest extends TestCase
     {
         Post::factory()->count(15)->for($this->user)->create();
 
-        $response = $this->getJson('/api/posts');
+        $response = $this->getJson('/api/v1/posts');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -53,7 +53,7 @@ class PostApiTest extends TestCase
      */
     public function test_get_single_post_with_comments(): void
     {
-        $response = $this->getJson("/api/posts/{$this->post->id}");
+        $response = $this->getJson("/api/v1/posts/{$this->post->id}");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -73,7 +73,7 @@ class PostApiTest extends TestCase
      */
     public function test_create_post_requires_authentication(): void
     {
-        $response = $this->postJson('/api/posts', [
+        $response = $this->postJson('/api/v1/posts', [
             'title' => 'Test Post',
             'body'  => 'Test body'
         ]);
@@ -88,7 +88,7 @@ class PostApiTest extends TestCase
     public function test_create_post_with_valid_data(): void
     {
         $response = $this->actingAs($this->user)
-            ->postJson('/api/posts', [
+            ->postJson('/api/v1/posts', [
                 'title' => 'New Post',
                 'body'  => 'This is a test post content.'
             ]);
@@ -111,7 +111,7 @@ class PostApiTest extends TestCase
     public function test_create_post_with_empty_title_fails(): void
     {
         $response = $this->actingAs($this->user)
-            ->postJson('/api/posts', [
+            ->postJson('/api/v1/posts', [
                 'title' => '',
                 'body'  => 'This is a test post content.'
             ]);
@@ -129,7 +129,7 @@ class PostApiTest extends TestCase
         $otherUser = User::factory()->create();
 
         $response = $this->actingAs($otherUser)
-            ->patchJson("/api/posts/{$this->post->id}", [
+            ->patchJson("/api/v1/posts/{$this->post->id}", [
                 'title' => 'Updated Title',
                 'body'  => 'Updated body'
             ]);
@@ -144,7 +144,7 @@ class PostApiTest extends TestCase
     public function test_update_post_by_owner_succeeds(): void
     {
         $response = $this->actingAs($this->user)
-            ->patchJson("/api/posts/{$this->post->id}", [
+            ->patchJson("/api/v1/posts/{$this->post->id}", [
                 'title' => 'Updated Title',
                 'body'  => 'Updated body'
             ]);
@@ -166,7 +166,7 @@ class PostApiTest extends TestCase
         $otherUser = User::factory()->create();
 
         $response = $this->actingAs($otherUser)
-            ->deleteJson("/api/posts/{$this->post->id}");
+            ->deleteJson("/api/v1/posts/{$this->post->id}");
 
         $response->assertStatus(403);
     }
@@ -177,7 +177,7 @@ class PostApiTest extends TestCase
     public function test_delete_post_by_owner_succeeds(): void
     {
         $response = $this->actingAs($this->user)
-            ->deleteJson("/api/posts/{$this->post->id}");
+            ->deleteJson("/api/v1/posts/{$this->post->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('message', 'Post berhasil dihapus');
@@ -192,7 +192,7 @@ class PostApiTest extends TestCase
      */
     public function test_get_non_existent_post_returns_404(): void
     {
-        $response = $this->getJson('/api/posts/9999');
+        $response = $this->getJson('/api/v1/posts/9999');
 
         $response->assertStatus(404)
             ->assertJsonPath('message', 'Resource tidak ditemukan.');
@@ -206,7 +206,7 @@ class PostApiTest extends TestCase
         $longBody = str_repeat('a', 100001);
 
         $response = $this->actingAs($this->user)
-            ->postJson('/api/posts', [
+            ->postJson('/api/v1/posts', [
                 'title' => 'Test',
                 'body'  => $longBody
             ]);

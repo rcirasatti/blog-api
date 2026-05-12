@@ -31,7 +31,7 @@ class CommentApiTest extends TestCase
     {
         Comment::factory()->count(15)->for($this->post)->for($this->user)->create();
 
-        $response = $this->getJson("/api/posts/{$this->post->id}/comments");
+        $response = $this->getJson("/api/v1/posts/{$this->post->id}/comments");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -55,7 +55,7 @@ class CommentApiTest extends TestCase
      */
     public function test_get_single_comment(): void
     {
-        $response = $this->getJson("/api/comments/{$this->comment->id}");
+        $response = $this->getJson("/api/v1/comments/{$this->comment->id}");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -73,7 +73,7 @@ class CommentApiTest extends TestCase
      */
     public function test_create_comment_requires_authentication(): void
     {
-        $response = $this->postJson("/api/posts/{$this->post->id}/comments", [
+        $response = $this->postJson("/api/v1/posts/{$this->post->id}/comments", [
             'body' => 'Great post!'
         ]);
 
@@ -86,7 +86,7 @@ class CommentApiTest extends TestCase
     public function test_create_comment_with_valid_data(): void
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/posts/{$this->post->id}/comments", [
+            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
                 'body' => 'This is a great post!'
             ]);
 
@@ -108,7 +108,7 @@ class CommentApiTest extends TestCase
     public function test_create_comment_with_empty_body_fails(): void
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/posts/{$this->post->id}/comments", [
+            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
                 'body' => ''
             ]);
 
@@ -122,7 +122,7 @@ class CommentApiTest extends TestCase
     public function test_create_comment_with_body_too_short_fails(): void
     {
         $response = $this->actingAs($this->user)
-            ->postJson("/api/posts/{$this->post->id}/comments", [
+            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
                 'body' => 'Hi'
             ]);
 
@@ -138,7 +138,7 @@ class CommentApiTest extends TestCase
         $longBody = str_repeat('a', 1001);
 
         $response = $this->actingAs($this->user)
-            ->postJson("/api/posts/{$this->post->id}/comments", [
+            ->postJson("/api/v1/posts/{$this->post->id}/comments", [
                 'body' => $longBody
             ]);
 
@@ -154,7 +154,7 @@ class CommentApiTest extends TestCase
         $otherUser = User::factory()->create();
 
         $response = $this->actingAs($otherUser)
-            ->patchJson("/api/comments/{$this->comment->id}", [
+            ->patchJson("/api/v1/comments/{$this->comment->id}", [
                 'body' => 'Updated comment'
             ]);
 
@@ -167,7 +167,7 @@ class CommentApiTest extends TestCase
     public function test_update_comment_by_owner_succeeds(): void
     {
         $response = $this->actingAs($this->user)
-            ->patchJson("/api/comments/{$this->comment->id}", [
+            ->patchJson("/api/v1/comments/{$this->comment->id}", [
                 'body' => 'Updated comment text'
             ]);
 
@@ -183,7 +183,7 @@ class CommentApiTest extends TestCase
         $otherUser = User::factory()->create();
 
         $response = $this->actingAs($otherUser)
-            ->deleteJson("/api/comments/{$this->comment->id}");
+            ->deleteJson("/api/v1/comments/{$this->comment->id}");
 
         $response->assertStatus(403);
     }
@@ -194,7 +194,7 @@ class CommentApiTest extends TestCase
     public function test_delete_comment_by_owner_succeeds(): void
     {
         $response = $this->actingAs($this->user)
-            ->deleteJson("/api/comments/{$this->comment->id}");
+            ->deleteJson("/api/v1/comments/{$this->comment->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('message', 'Komentar berhasil dihapus');
@@ -209,7 +209,7 @@ class CommentApiTest extends TestCase
      */
     public function test_get_non_existent_comment_returns_404(): void
     {
-        $response = $this->getJson('/api/comments/9999');
+        $response = $this->getJson('/api/v1/comments/9999');
 
         $response->assertStatus(404)
             ->assertJsonPath('message', 'Resource tidak ditemukan.');
